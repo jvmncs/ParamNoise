@@ -15,7 +15,7 @@ from core.train import trainDQN, trainPPO
 from core.test import testDQN, testPPO
 from utils.utils import save_checkpoint, mkdir_p, AverageMeter, Logger
 from utils.env import make_atari, wrap_deepmind, wrap_torch
-from core.storage import RolloutStorage, ReplayBuffer
+from utils.storage import RolloutStorage, ReplayBuffer
 
 import gym
 
