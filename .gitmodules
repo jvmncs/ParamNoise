@@ -1,0 +1,4 @@
+[submodule "utils/progress"]
+	path = utils/progress
+	url = git@github.com:verigak/progress.git
+	branch = master

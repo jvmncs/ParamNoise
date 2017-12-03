@@ -6,6 +6,8 @@ import time
 import random
 import itertools
 
+import gym
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -16,8 +18,6 @@ from core.test import testDQN, testPPO
 from utils.utils import save_checkpoint, mkdir_p, AverageMeter, Logger
 from utils.env import make_atari, wrap_deepmind, wrap_torch
 from utils.storage import RolloutStorage, ReplayBuffer
-
-import gym
 
 parser = argparse.ArgumentParser(description='Reproducing Parametric Noise')
 
