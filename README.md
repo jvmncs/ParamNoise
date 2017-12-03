@@ -21,13 +21,12 @@ Noisy Networks For Exploration : https://openreview.net/forum?id=rywHCPkAW&noteI
 - Make DQN fully functional.
   - Finish `testDQN` in `test.py`.  This should be fairly straightforward once trainDQN is finished, since we'll want to be tracking the same metrics.
 - Incorporate progress bar from [here](https://github.com/verigak/progress).
-
+- Develop AdaptNoisyLinear layer
 - Experiments
   - DQN baseline
   - Noisy-DQN
-- Develop AdaptNoisyLinear layer
-
-- Run Adapt-DQN experiments
+  - Adapt-DQN
+  
 - Implement PPO and MuJoCo env handling
 - Run baseline PPO, Noisy-PPO, and Adapt-PPO
 
