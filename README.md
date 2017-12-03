@@ -26,7 +26,6 @@ Noisy Networks For Exploration : https://openreview.net/forum?id=rywHCPkAW&noteI
   - DQN baseline
   - Noisy-DQN
   - Adapt-DQN
-  
 - Implement PPO and MuJoCo env handling
 - Run baseline PPO, Noisy-PPO, and Adapt-PPO
 
