@@ -1,5 +1,24 @@
 import os
+import random
+import shutil
+
+import torch
+from torch.autograd import Variable
+
 #import matplotlib.pyplt as plt
+import numpy as np
+
+
+def select_action(state, model, args):
+    encoded_state = args.FloatTensor((np.array(state)/255.).transpose(2,0,1))
+    if args.alg == 'dqn':
+        if args.noise == 'learned':
+            return model(Variable(encoded_state.unsqueeze(0), volatile=True).type(args.FloatTensor)).data.max(1)[1].view(1, 1)[0, 0]
+        else:
+            # TODO: Make it epsilon-greedy
+            sample = random.random()
+    else:
+        pass
 
 
 def save_checkpoint(state, is_best, title, checkpoint='checkpoint', filename='checkpoint.pth.tar'):
@@ -70,7 +89,7 @@ class Logger(object):
         self.names = names
         for _, name in enumerate(self.names):
             self.file.write(name)
-            self.file.write('\t')
+            self.file.write('\t\t')
             self.numbers[name] = []
         self.file.write('\n')
         self.file.flush()

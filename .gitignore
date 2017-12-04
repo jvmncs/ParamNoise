@@ -1,6 +1,6 @@
-# Jason's stuff
 dev/
 *.pth.tar*
+*checkpoint/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

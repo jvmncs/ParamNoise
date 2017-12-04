@@ -18,6 +18,7 @@ from core.test import testDQN, testPPO
 from utils.utils import save_checkpoint, mkdir_p, AverageMeter, Logger
 from utils.env import make_atari, wrap_deepmind, wrap_torch
 from utils.storage import RolloutStorage, ReplayBuffer
+from utils.progress.progress.bar import Bar
 
 parser = argparse.ArgumentParser(description='Reproducing Parametric Noise')
 
@@ -34,6 +35,7 @@ parser.add_argument('--alg', default='dqn', type=str, metavar='ALG',
 parser.add_argument('--noise', default=None, metavar='NOISE_TYPE',
                     choices = [None, 'learned','adaptive'],
                     help='type of parameter noise to use')
+# TODO: Incorporate these
 parser.add_argument('--epsilon-greed', default = 1., type=float, metavar='FLOAT',
                     help='beginning of epsilon schedule (or constant)')
 parser.add_argument('--epsilon-greed-end', default = .1, type=float, metavar='FLOAT',
@@ -72,7 +74,7 @@ parser.add_argument('--eval-every', default=1000000, type=int, metavar='N',
                     help='evaluate every n frames')
 parser.add_argument('--eval-period', default=500000, type=int, metavar='N',
                     help='number of frames per evaluation')
-parser.add_argument('--max-episode-length', default=108000, type=int, metavar='N',
+parser.add_argument('--max-episode-length', default=10000, type=int, metavar='N',
                     help='max frames per episode')
 parser.add_argument('--manual-seed', default=None, type=int, metavar='N',
                     help='manual seed')
@@ -94,7 +96,7 @@ args.use_cuda = torch.cuda.is_available() and not args.disable_cuda
 args.FloatTensor = torch.cuda.FloatTensor if args.use_cuda else torch.FloatTensor
 args.LongTensor = torch.cuda.LongTensor if args.use_cuda else torch.LongTensor
 args.ByteTensor = torch.cuda.ByteTensor if args.use_cuda else torch.ByteTensor
-args.Tensor = FloatTensor
+args.Tensor = args.FloatTensor
 
 
 # Set seeds
@@ -125,12 +127,14 @@ assert (args.alg == 'dqn' and is_atari) or (args.alg == 'ppo' and issubclass(env
 
 
 # Main training loop
-def main():
+def main(env, args):
     # Initiate args useful for training
     start_episode = 0
     args.current_frame = 0
     args.eval_start = 0
+    args.test_num = 0
     args.test_time = False
+    args.best_avg_return = -1
 
     # Make checkpoint path if there is none
     if not os.path.isdir(args.checkpoint):
@@ -145,7 +149,7 @@ def main():
     args.losses = AverageMeter()
 
     # Model & experiences
-    print("==> creating model '{}'".format(args.alg))
+    print("==> creating model '{}' with '{}' noise".format(args.alg, args.noise))
     if args.alg == 'dqn':
         model = DQN(action_space = env.action_space, noise = args.noise)
         target_model = DQN(action_space = env.action_space, noise = args.noise)
@@ -181,10 +185,10 @@ def main():
 
     # Resume
     # Unload status, meters, and previous state_dicts from checkpoint
+    print("==> resuming from '{}' at frame {}".format(args.resume, args.start_frame) if args.resume else "==> starting from scratch at frame {}".format(args.start_frame))
     title = str(args.noise) + '-' + args.env_id
     if args.resume:
         # Load checkpoint.
-        print('==> Resuming from checkpoint...')
         assert os.path.isfile(args.resume), 'Error: no checkpoint directory found!'
         args.checkpoint = os.path.dirname(args.resume)
         checkpoint = torch.load(args.resume)
@@ -200,10 +204,11 @@ def main():
         args.logger = Logger(os.path.join(args.checkpoint, title+'-log.txt'), title=title, resume=True)
     else:
         args.logger = Logger(os.path.join(args.checkpoint, title+'-log.txt'), title=title)
-        args.logger.set_names(['Episode', 'Frame', 'Episode Length', 'Average Loss', 'Return'])
+        args.logger.set_names(['Episode', 'Frame', 'EpLen', 'AvgLoss', 'Return'])
 
     # We need at least one experience in the replay buffer for DQN
     if args.alg == 'dqn':
+        print("==> filling replay buffer with {} transition(s)".format(args.memory_warmup))
         state = env.reset()
         for i in range(args.memory_warmup):
             action = random.randrange(env.action_space.n)
@@ -213,13 +218,14 @@ def main():
         # Need next reset to be a true reset (due to EpisodicLifeEnv)
         env.was_real_done = True
 
-
+    print("==> beginning training")
     for episode in itertools.count(start_episode):
         # Train model
         if args.alg == 'dqn':
-            env, model, optimizer, args = trainDQN(env, model, target_model, optimizer, value_criterion, args)
+            env, model, target_model, optimizer, args = trainDQN(env, model, target_model, optimizer, value_criterion, args)
         else:
             env, model, optimizer, args = trainPPO(env, model, optimizer, value_criterion, policy_criterion, args)
+
 
         # Checkpoint model to disk
         is_best = args.returns.avg > args.best_avg_return
@@ -229,7 +235,7 @@ def main():
             'episode': episode,
             'frame': args.current_frame,
             'state_dict': model.state_dict(),
-            'target_state_dict': target_model.state_dict() if arg.alg == 'dqn' else None,
+            'target_state_dict': target_model.state_dict() if args.alg == 'dqn' else None,
             'rewards': args.rewards,
             'returns': args.returns,
             'best_avg_return': args.best_avg_return,
@@ -245,43 +251,49 @@ def main():
         args.losses.reset()
         args.rewards.reset()
 
-        # Handle evaluation
+        # Handle testing
         if args.test_time:
+            # For testing only
+            print("==> evaluating agent for {} frames at frame {}".format(args.eval_period, args.current_frame))
+
             args.eval_start = args.current_frame
             args.testing_frame = args.current_frame
 
             args.test_rewards  = AverageMeter()
             args.test_returns = AverageMeter()
             args.test_episode_lengths = AverageMeter()
-            args.test_losses = AverageMeter()
 
-            args.test_logger = Logger(os.path.join(args.checkpoint, 'test-atframe'+str(args.current_frame)+'-'+title+'-log.txt'), title=title)
-            args.test_logger.set_names(['Frame', 'Episode Length', 'Average Loss', 'Return'])
+            args.test_logger = Logger(os.path.join(args.checkpoint, 'test'+str(args.test_num)+'-'+title+'-log.txt'), title=title)
+            args.test_logger.set_names(['Frame', 'EpLen', 'Return'])
 
+            # Main testing loop
             while args.testing_frame - args.eval_start < args.eval_period:
                 if args.alg == 'dqn':
                     env, args = testDQN(env, model, args)
                 else:
                     env, args = testPPO(env, model, args)
 
-                args.test_logger.append([args.testing_frame - args.eval_start, args.test_episode_lengths.val, args.test_losses.avg, args.test_returns.val])
+                args.test_logger.append([args.testing_frame - args.eval_start, args.test_episode_lengths.val, args.test_returns.val])
 
                 args.test_rewards.reset()
-                args.test_losses.reset()
 
                 # For testing only:
-                break
+                #break
+            # Need next reset to be a true reset
+            env.was_real_done = True
+            # Need to turn off testing for next episode
             args.test_time = False
+            args.test_num += 1
 
 
         if args.current_frame > args.n_frames:
             break
         # For testing only:
-        if episode >= 100:
-            break
+        # if episode >= 100:
+        #     break
         print('episode: ' + str(episode))
     # TODO: Handle cleanup
     env.close()
 
 if __name__ == '__main__':
-    main()
+    main(env, args)

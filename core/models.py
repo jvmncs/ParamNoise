@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 
-from .norm import LayerNorm
-from .noisy import NoisyLinear, AdaptNoisyLinear
+from utils.norm import LayerNorm
+from utils.noisy import NoisyLinear, AdaptNoisyLinear
 
 
 class DQN(nn.Module):

@@ -1,9 +1,7 @@
-import random
-import torch
-import numpy as np
 from torch.autograd import Variable
+from utils.utils import select_action
 
-# Only one episode (Remember end of life = end of episode for DQN)
+# Only one episode (Remember, end of life = end of episode for DQN)
 def trainDQN(env, model, target_model, optimizer, value_criterion, args):
     model.train()
     state = env.reset()
@@ -53,8 +51,8 @@ def trainDQN(env, model, target_model, optimizer, value_criterion, args):
             target_model.load_state_dict(model.state_dict())
 
         # Update frame-level meters
-        args.losses.update(loss)
-        args.rewards.update(reward)
+        args.losses.update(loss.data[0])
+        args.rewards.update(float(reward))
 
         # Move on
         state = successor
@@ -62,7 +60,7 @@ def trainDQN(env, model, target_model, optimizer, value_criterion, args):
 
     # Update episode-level meters
     args.returns.update(args.rewards.sum)
-    args.episode_lengths.update(args.current_frame - initial_frame)
+    args.episode_lengths.update(int(args.current_frame - initial_frame))
 
     # Initiate evaluation if needed
     if args.current_frame - args.eval_start > args.eval_every:
@@ -70,16 +68,6 @@ def trainDQN(env, model, target_model, optimizer, value_criterion, args):
 
     return env, model, target_model, optimizer, args
 
-def select_action(state, model, args):
-    encoded_state = args.FloatTensor((np.array(state)/255.).transpose(2,0,1))
-    if args.alg == 'dqn':
-        if args.noise == 'learned':
-            return model(Variable(encoded_state.unsqueeze(0), volatile=True).type(args.FloatTensor)).data.max(1)[1].view(1, 1)[0, 0]
-        else:
-            # TODO: Make it epsilon-greedy
-            sample = random.random()
-    else:
-        pass
 
 def trainPPO(env, model, optimizer, value_criterion, policy_criterion, args):
     model.train()
