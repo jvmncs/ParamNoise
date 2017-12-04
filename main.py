@@ -136,6 +136,9 @@ def main(env, args):
     args.test_time = False
     args.best_avg_return = -1
 
+    args.bar = Bar('Training', max = args.n_frames)
+    args.test_bar = Bar('Testing', max = args.eval_period)
+
     # Make checkpoint path if there is none
     if not os.path.isdir(args.checkpoint):
         mkdir_p(args.checkpoint)
@@ -186,7 +189,7 @@ def main(env, args):
     # Resume
     # Unload status, meters, and previous state_dicts from checkpoint
     print("==> resuming from '{}' at frame {}".format(args.resume, args.start_frame) if args.resume else "==> starting from scratch at frame {}".format(args.start_frame))
-    title = str(args.noise) + '-' + args.env_id
+    title = '{}-{}'.format(args.noise, args.env_id)
     if args.resume:
         # Load checkpoint.
         assert os.path.isfile(args.resume), 'Error: no checkpoint directory found!'
@@ -201,9 +204,9 @@ def main(env, args):
         args.best_avg_return = checkpoint['best_avg_return']
         args.episode_lengths = checkpoint['episode_lengths']
         optimizer.load_state_dict(checkpoint['optimizer'])
-        args.logger = Logger(os.path.join(args.checkpoint, title+'-log.txt'), title=title, resume=True)
+        args.logger = Logger(os.path.join(args.checkpoint, '{}-log.txt'.format(title)), title=title, resume=True)
     else:
-        args.logger = Logger(os.path.join(args.checkpoint, title+'-log.txt'), title=title)
+        args.logger = Logger(os.path.join(args.checkpoint, '{}-log.txt'.format(title)), title=title)
         args.logger.set_names(['Episode', 'Frame', 'EpLen', 'AvgLoss', 'Return'])
 
     # We need at least one experience in the replay buffer for DQN
@@ -218,7 +221,7 @@ def main(env, args):
         # Need next reset to be a true reset (due to EpisodicLifeEnv)
         env.was_real_done = True
 
-    print("==> beginning training")
+    print("==> beginning training for {} frames".format(args.n_frames))
     for episode in itertools.count(start_episode):
         # Train model
         if args.alg == 'dqn':
@@ -263,7 +266,7 @@ def main(env, args):
             args.test_returns = AverageMeter()
             args.test_episode_lengths = AverageMeter()
 
-            args.test_logger = Logger(os.path.join(args.checkpoint, 'test'+str(args.test_num)+'-'+title+'-log.txt'), title=title)
+            args.test_logger = Logger(os.path.join(args.checkpoint, 'test{}-{}-log.txt'.format(args.test_num, title)), title=title)
             args.test_logger.set_names(['Frame', 'EpLen', 'Return'])
 
             # Main testing loop
@@ -291,7 +294,7 @@ def main(env, args):
         # For testing only:
         # if episode >= 100:
         #     break
-        print('episode: ' + str(episode))
+        #print('episode: {}'.format(episode))
     # TODO: Handle cleanup
     env.close()
 

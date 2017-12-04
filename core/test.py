@@ -2,10 +2,12 @@ from torch.autograd import Variable
 from utils.utils import select_action
 
 def testDQN(env, model, args):
+    # Initiate stuff
     model.eval()
-    state = env.reset()
+    state = env.reset() # True reset
     done = False
     initial_frame = args.current_frame
+    # Eval for one episode (i.e. one life)
     while not done:
         # Handle a step
         action = select_action(state, model, args)

@@ -58,9 +58,28 @@ def trainDQN(env, model, target_model, optimizer, value_criterion, args):
         state = successor
         args.current_frame += 1
 
+        # Update progress bar every frame
+        args.bar.suffix = '({frame}/{size}) | Total: {total:} | ETA: {eta:} | AvgLoss: {loss:.4f} | AvgReward: {rewards: .4f}'.format(
+                    frame=args.current_frame,
+                    size=args.n_frames,
+                    #data=data_time.avg,
+                    #bt=batch_time.avg,
+                    total=args.bar.elapsed_td,
+                    eta=args.bar.eta_td,
+                    loss=args.losses.avg,
+                    rewards=args.rewards.avg)
+        args.bar.next()
+
     # Update episode-level meters
     args.returns.update(args.rewards.sum)
     args.episode_lengths.update(int(args.current_frame - initial_frame))
+
+    args.bar.suffix += ' | Total Loss {loss} | Return {return_} | Episode Length {length}\n'.format(
+                loss=round(args.losses.sum, 4),
+                return_=args.returns.val,
+                length=args.episode_lengths.val)
+    args.bar.next()
+
 
     # Initiate evaluation if needed
     if args.current_frame - args.eval_start > args.eval_every:
