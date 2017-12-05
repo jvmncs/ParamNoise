@@ -287,6 +287,7 @@ def main(env, args):
             # Need to turn off testing for next episode
             args.test_time = False
             args.test_num += 1
+            args.test_bar.finish()
 
 
         if args.current_frame > args.n_frames:
@@ -296,6 +297,7 @@ def main(env, args):
         #     break
         #print('episode: {}'.format(episode))
     # TODO: Handle cleanup
+    args.bar.finish()
     env.close()
 
 if __name__ == '__main__':
