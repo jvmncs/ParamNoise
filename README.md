@@ -18,13 +18,14 @@ Noisy Networks For Exploration : https://openreview.net/forum?id=rywHCPkAW&noteI
 
 
 ### TODOs
-- Extend progress bar to evaluation periods.
 - Develop AdaptNoisyLinear layer
+- Implement PPO and MuJoCo env handling
+- Implement plotting (matplotlib is in Logger object, maybe try out visdom?)
+- Test combinations of arguments (mostly envs with different )
 - Experiments
   - DQN baseline
   - Noisy-DQN
   - Adapt-DQN
-- Implement PPO and MuJoCo env handling
 - Run baseline PPO, Noisy-PPO, and Adapt-PPO
 
 
