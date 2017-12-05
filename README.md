@@ -18,9 +18,7 @@ Noisy Networks For Exploration : https://openreview.net/forum?id=rywHCPkAW&noteI
 
 
 ### TODOs
-- Make DQN fully functional.
-  - Finish `testDQN` in `test.py`.  This should be fairly straightforward once `trainDQN` is finished, since we'll want to be tracking the same metrics.
-- Incorporate progress bar from [here](https://github.com/verigak/progress).
+- Extend progress bar to evaluation periods.
 - Develop AdaptNoisyLinear layer
 - Experiments
   - DQN baseline
