@@ -6,9 +6,10 @@ from utils.noisy import NoisyLinear, AdaptNoisyLinear
 
 
 class DQN(nn.Module):
-    def __init__(self, action_space, noise = None):
+    def __init__(self, action_space, noise = None, initial_threshold = None):
         super(DQN, self).__init__()
-        assert noise in [None, 'learned', 'adaptive']
+        assert noise in [None, 'learned', 'adaptive'], 'Noise needs to be None, learned, or adaptive'
+        assert initial_threshold if noise == 'adaptive', 'Adaptive noise needs an initial threshold'
         self.noise = noise
         self.action_dim = action_space.n
 
@@ -20,9 +21,10 @@ class DQN(nn.Module):
             self.fc = nn.Linear(self.flattened_dim, 512)
             self.out = nn.Linear(512, self.action_dim)
         elif self.noise == 'adaptive':
-            self.fc = AdaptNoisyLinear(self.flattened_dim, 512)
-            self.ln = LayerNorm(512)
-            self.out = AdaptNoisyLinear(512, self.action_dim)
+            self.ln = LayerNorm(self.flattened_dim)
+            self.fc = AdaptNoisyLinear(self.flattened_dim, 512, initial_threshold)
+            self.ln_out = LayerNorm(512)
+            self.out = AdaptNoisyLinear(512, self.action_dim, initial_threshold)
         else:
             self.fc = NoisyLinear(self.flattened_dim, 512)
             self.out = NoisyLinear(512, self.action_dim)
@@ -31,20 +33,44 @@ class DQN(nn.Module):
         x = nn.functional.relu(self.conv1(x))
         x = nn.functional.relu(self.conv2(x))
         x = nn.functional.relu(self.conv3(x))
-        x = self.fc(x.view(x.size(0),-1))
         if self.noise == 'adaptive':
-            x = self.ln(x)
+            x = self.ln(x.view(x.size(0),-1))
+            x = self.fc(x)
+        else:
+            x = self.fc(x.view(x.size(0),-1))
         x = nn.functional.relu(x)
+        if self.noise == 'adaptive':
+            x = self.ln_out(x)
         return self.out(x)
 
     # Probably need to change these arguments to softmax(net_output) and softmax(perturbed_output)
     def adaptive_metric(self, net, perturbed):
-        return nn.functional.kl_div(net, perturbed)
+        return nn.functional.kl_div(nn.functional.softmax(net), nn.functional.softmax(perturbed))
 
-    def reset_noise(self):
+    def resample(self):
         if self.noise:
-            self.fc.reset_noise()
-            self.out.reset_noise()
+            self.fc.resample()
+            self.out.resample()
+
+    def denoise(self):
+        if self.noise == 'adaptive':
+            self.fc.denoise()
+            self.out.denoise()
+
+    def renoise(self):
+        if self.noise == 'adaptive':
+            self.fc.renoise()
+            self.out.renoise()
+
+    def adapt(self, distance):
+        if self.noise == 'adaptive':
+            self.fc.adapt(distance)
+            self.out.adapt(distance)
+
+    def update_threshold(self, new_threshold):
+        if self.noise == 'adaptive':
+            self.fc.update_threshold(new_threshold)
+            self.out.update_threshold(new_threshold)
 
 
 class PPO(nn.Module):
@@ -126,10 +152,10 @@ class PPO(nn.Module):
         ratio = perturbed / net
         return torch.abs(ratio - 1)
 
-    def reset_noise(self):
+    def resample(self):
         if noise:
-            self.fc.reset_noise()
-            self.out.reset_noise()
+            self.fc.resample()
+            self.out.resample()
         else:
             pass
 

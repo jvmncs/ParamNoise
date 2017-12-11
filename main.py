@@ -5,6 +5,7 @@ import os
 import time
 import random
 import itertools
+from math import log
 
 import gym
 
@@ -154,11 +155,10 @@ def main(env, args):
     # Model & experiences
     print("==> creating model '{}' with '{}' noise".format(args.alg, args.noise))
     if args.alg == 'dqn':
-        model = DQN(action_space = env.action_space, noise = args.noise)
+        args.initial_threshold = - log(1 - args.epsilon_greed + args.epsilon_greed / env.action_space.n)
+        model = DQN(action_space = env.action_space, noise = args.noise, initial_threshold = args.initial_threshold)
         target_model = DQN(action_space = env.action_space, noise = args.noise)
         target_model.load_state_dict(model.state_dict())
-        # Never going to train the target model
-        target_model.eval()
         args.memory = ReplayBuffer(args.replay_memory, args.use_cuda)
     else:
         model = PPO(action_space = env.action_space, noise = args.noise, clip_epsilon = args.clip_epsilon)
@@ -180,7 +180,7 @@ def main(env, args):
             optimizer = optim.RMSprop(model.parameters(), lr = 2.5e-4, momentum = 0.95, alpha = 0.95, eps = 1e-2)
     else:
         policy_criterion = model.surrogate_loss
-        # TODO revisit the choices here.  Might be best to just go with defaults from PPO paper
+        # TODO: revisit the choices here.  Might be best to just go with defaults from PPO paper
         if args.noise == 'learned':
             optimizer = optim.RMSprop(model.parameters(), lr = 2.5e-4, momentum = 0.95, alpha = 0.95, eps = 1e-2)
         else:

@@ -36,12 +36,12 @@ class NoisyLinear(Module):
             (out_features x in_features)
         bias:   the learnable bias of the module of shape (out_features)
     Methods:
-        reset_noise: resamples the noise tensors
+        resample: resamples the noise tensors
     Examples::
         >>> m = nn.NoisyLinear(20, 30)
         >>> input = autograd.Variable(torch.randn(128, 20))
         >>> output = m(input)
-        >>> m.reset_noise()
+        >>> m.resample()
         >>> output_new = m(input)
         >>> print(output)
         >>> print(output_new)
@@ -69,7 +69,7 @@ class NoisyLinear(Module):
         else:
             self.std_init = std_init
         self.reset_parameters()
-        self.reset_noise()
+        self.resample()
 
     def reset_parameters(self):
         if self.factorized:
@@ -92,7 +92,7 @@ class NoisyLinear(Module):
         x = x.sign().mul(x.abs().sqrt())
         return x
 
-    def reset_noise(self):
+    def resample(self):
         if self.factorized:
             epsilon_in = self._scale_noise(self.in_features)
             epsilon_out = self._scale_noise(self.out_features)
@@ -119,46 +119,59 @@ class NoisyLinear(Module):
             + str(self.factorized) + ')'
 
 # TODO: Implement this.  Figure out how to incorporate the distance metrics for the adaptive scheme
-# Also make sure that reset_noise functions identically to NoisyLinear
+# Also make sure that resample functions identically to NoisyLinear
+# Note std_init = .01 for DQN, but .1 for DDPG.
+# DQN: (https://github.com/openai/baselines/blob/2444034d116f1a4e6b337e2dc9127c0ef4d523c2/baselines/deepq/build_graph.py#L214)
+# DDPG: (https://github.com/openai/baselines/blob/2444034d116f1a4e6b337e2dc9127c0ef4d523c2/baselines/ddpg/noise.py#L5)
+# Will have to ask how robust this is
+# Will also have to ask how they set this for TRPO and how they might set it for PPO
 class AdaptNoisyLinear(Module):
-    def __init__(self, in_features, out_features, bias=True, std_init=None):
+    def __init__(self, in_features, out_features, threshold, bias = True, std_init = .01, adaptation_coefficient = 1.01):
         super(AdaptNoisyLinear, self).__init__()
-        mu_range = math.sqrt(3. / self.weight_mu.size(1))
-        self.weight_mu.data.uniform_(-mu_range, mu_range)
-        self.weight_sigma.data.fill_(self.std_init)
+        self.in_features = in_features
+        self.out_features = out_features
+        self.include_bias = bias
+        self.threshold = threshold
+        self.sigma = std_init
+        self.placeholder_sigma = std_init
+        self.adaptation_coefficient = adaptation_coefficient
+        self.weight_mu = Parameter(torch.Tensor(out_features, in_features))
+        self.register_buffer('weight_epsilon', torch.Tensor(out_features, in_features))
         if self.include_bias:
-            self.bias_mu.data.uniform_(-mu_range, mu_range)
-            self.bias_sigma.data.fill_(self.std_init)
+            self.bias_mu = Parameter(torch.Tensor(out_features))
+            self.register_buffer('bias_epsilon', torch.Tensor(out_features))
+        else:
+            self.register_parameter('bias', None)
+        self.reset_parameters()
+        self.resample()
 
-    def forward(self, x):
-        pass
+    def update_threshold(self, new_threshold):
+        self.threshold = new_threshold
 
+    def adapt(self, distance):
+        if distance > self.threshold:
+            self.sigma /= self.adaptation_coefficient
+            self.placeholder_sigma /= self.adaptation_coefficient
+        else:
+            self.sigma *= self.adaptation_coefficient
+            self.placeholder_sigma *= self.adaptation_coefficient
 
-    # TODO do distance metric and rescale noise accordingly
-    def _rescale_noise(self):
-        pass
+    def denoise(self):
+        self.placeholder_sigma = self.sigma
+        self.sigma = 0
 
+    def renoise(self):
+        self.sigma = self.placeholder_sigma
 
-
-    # TODO implement
-    def reset_noise(self):
+    def resample(self):
         self.weight_epsilon.copy_(torch.randn((self.out_features, self.in_features)))
         if self.include_bias:
             self.bias_epsilon.copy_(torch.randn(self.out_features))
 
-    def _scale_noise(self, size):
-        x = torch.randn(size)
-        x = x.sign().mul(x.abs().sqrt())
-        return x
-
-
     def forward(self, input):
-        if self.training:
-            return F.linear(input,
-                            self.weight_mu + self.weight_sigma.mul(Variable(self.weight_epsilon)),
-                            self.bias_mu + self.bias_sigma.mul(Variable(self.bias_epsilon)))
-        else:
-            return F.linear(input, self.weight_mu, self.bias_mu)
+        return F.linear(input,
+                        self.weight_mu + Variable(self.sigma**2 * self.weight_epsilon),
+                        self.bias_mu + Variable(self.sigma**2 * self.bias_epsilon)
 
     def __repr__(self):
         return self.__class__.__name__ + ' (' \

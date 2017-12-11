@@ -22,6 +22,7 @@ Noisy Networks For Exploration : https://openreview.net/forum?id=rywHCPkAW&noteI
 - Implement PPO and MuJoCo env handling
 - Implement plotting (matplotlib is in Logger object, maybe try out visdom?)
 - Test combinations of arguments (mostly envs with different )
+- Determine if (and which) sparse rllab envs should be tested
 - Experiments
   - DQN baseline
   - Noisy-DQN
