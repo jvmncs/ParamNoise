@@ -1,5 +1,5 @@
-# NoisyReproduce
-A comparison of parameter noise methods for exploration in deep reinforcement learning
+# ParamNoise
+A comparison of parameter space noise methods for exploration in deep reinforcement learning
 
 
 ### Links to papers
