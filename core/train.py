@@ -39,24 +39,39 @@ def trainDQN(env, model, target_model, optimizer, value_criterion, args):
             # Need to resample parameters for each transition in the batch
             # I wonder if this is really necessary
             # Seems inefficient at best but I don't make the rules
-            for i in range(len(states.split(1))):
-                model.resample()
-                target_model.resample()
-                this_one = states[i]
-                Q = model(this_one).max(1)[0]
-                this_one.volatile = True
-                target_Q = target_model(this_one).max(1)[0] if not final_mask[i] else 0
-                target_Q.volatile = False
-                expected_Q = args.discount_factor * target_Q + rewards[i]
+            # for i in range(len(states.split(1))):
+            #     model.resample()
+            #     target_model.resample()
+            #     this_one = Variable(states[i].data.unsqueeze(0))
+            #     Q = model(this_one).max(1)[0]
+            #     this_one.volatile = True
+            #     target_Q = target_model(this_one).max(1)[0] if not final_mask[i] else 0
+            #     target_Q.volatile = False
+            #     expected_Q = args.discount_factor * target_Q + rewards[i]
+            #
+            #     # Compute loss, backpropagate and apply clipped gradient update
+            #     one_step_loss = value_criterion(Q, expected_Q)
+            #     optimizer.zero_grad()
+            #     one_step_loss.backward()
+            #     for param in model.parameters():
+            #         param.grad.data.clamp(-1,1)
+            #     optimizer.step()
+            #     loss += one_step_loss
 
-                # Compute loss, backpropagate and apply clipped gradient update
-                one_step_loss = value_criterion(Q, expected_Q)
-                optimizer.zero_grad()
-                one_step_loss.backward()
-                for param in model.parameters():
-                    param.grad.data.clamp(-1,1)
-                optimizer.step()
-                loss += one_step_loss
+            Q = model(states).max(1)[0]
+            states.volatile = True
+            target_Q = target_model(states).max(1)[0]
+            target_Q[final_mask] = 0
+            target_Q.volatile = False
+            expected_Q = args.discount_factor * target_Q + rewards
+
+            # Compute loss, backpropagate and apply clipped gradient update
+            loss = value_criterion(Q, expected_Q)
+            optimizer.zero_grad()
+            loss.backward()
+            for param in model.parameters():
+                param.grad.data.clamp_(-1, 1)
+            optimizer.step()
         else:
             Q = model(states).max(1)[0]
             states.volatile = True
@@ -78,14 +93,13 @@ def trainDQN(env, model, target_model, optimizer, value_criterion, args):
             target_model.load_state_dict(model.state_dict())
 
         # Adapt if needed
-        if args.noise == 'learned':
-            model.adapt()
+        if args.noise == 'adaptive':
+            pass
+            distance = None
+            model.adapt(distance)
 
         # Update frame-level meters
-        if args.noise == 'learned':
-            args.losses.update(loss)
-        else:
-            args.losses.update(loss.data[0])
+        args.losses.update(loss.data[0])
         args.rewards.update(float(reward))
 
         # Move on

@@ -9,7 +9,8 @@ class DQN(nn.Module):
     def __init__(self, action_space, noise = None, initial_threshold = None):
         super(DQN, self).__init__()
         assert noise in [None, 'learned', 'adaptive'], 'Noise needs to be None, learned, or adaptive'
-        assert initial_threshold if noise == 'adaptive', 'Adaptive noise needs an initial threshold'
+        if noise == 'adaptive':
+            assert initial_threshold, 'Adaptive noise needs an initial threshold'
         self.noise = noise
         self.action_dim = action_space.n
 

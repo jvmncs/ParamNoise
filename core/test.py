@@ -6,7 +6,7 @@ def testDQN(env, model, args):
     model.eval()
     state = env.reset() # True reset
     done = False
-    initial_frame = args.current_frame
+    initial_frame = args.testing_frame
     # Eval for one episode (i.e. one life)
     while not done:
         # Handle a step
@@ -31,13 +31,16 @@ def testDQN(env, model, args):
                     rewards=args.test_rewards.avg)
         args.test_bar.next()
 
+        if args.testing_frame - initial_frame >= args.max_episode_length:
+            break
+
     # Update episode-level meters
     args.test_returns.update(args.test_rewards.sum)
-    args.test_episode_lengths.update(args.testing_frame - initial_frame)
+    args.test_episode_lengths.update(args.testing_frame)
 
     args.test_bar.suffix += ' | Return {return_} | Episode Length {length}\n'.format(
                 return_=args.test_returns.val,
-                length=args.test_episode_lengths.val)
+                length=args.test_episode_lengths.val - initial_frame)
     args.test_bar.next()
 
     return env, args

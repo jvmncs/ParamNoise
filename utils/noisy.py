@@ -171,7 +171,7 @@ class AdaptNoisyLinear(Module):
     def forward(self, input):
         return F.linear(input,
                         self.weight_mu + Variable(self.sigma**2 * self.weight_epsilon),
-                        self.bias_mu + Variable(self.sigma**2 * self.bias_epsilon)
+                        self.bias_mu + Variable(self.sigma**2 * self.bias_epsilon))
 
     def __repr__(self):
         return self.__class__.__name__ + ' (' \

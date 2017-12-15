@@ -211,9 +211,10 @@ def main(env, args):
 
     # We need at least one experience in the replay buffer for DQN
     if args.alg == 'dqn':
-        print("==> filling replay buffer with {} transition(s)".format(args.memory_warmup))
+        true_warmup = min(args.memory_warmup, args.replay_memory)
+        print("==> filling replay buffer with {} transition(s)".format(true_warmup))
         state = env.reset()
-        for i in range(args.memory_warmup):
+        for i in range(true_warmup):
             action = random.randrange(env.action_space.n)
             successor, reward, done, _ = env.step(action)
             args.memory.add(state, action, reward, successor, done)
@@ -278,6 +279,7 @@ def main(env, args):
 
                 args.test_logger.append([args.testing_frame - args.eval_start, args.test_episode_lengths.val, args.test_returns.val])
 
+                args.test_episode_lengths.reset()
                 args.test_rewards.reset()
 
                 # For testing only:
