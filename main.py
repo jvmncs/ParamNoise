@@ -5,7 +5,7 @@ import os
 import time
 import random
 import itertools
-from math import log
+import math
 
 import gym
 
@@ -36,13 +36,13 @@ parser.add_argument('--alg', default='dqn', type=str, metavar='ALG',
 parser.add_argument('--noise', default=None, metavar='NOISE_TYPE',
                     choices = [None, 'learned','adaptive'],
                     help='type of parameter noise to use')
-# TODO: Incorporate these
 parser.add_argument('--epsilon-greed', default = 1., type=float, metavar='FLOAT',
                     help='beginning of epsilon schedule (or constant)')
 parser.add_argument('--epsilon-greed-end', default = .1, type=float, metavar='FLOAT',
                     help='end of epsilon schedule (meaningless if constant epsilon-greed)')
 parser.add_argument('--epsilon-greed-steps', default = 1000000, type=int, metavar='N',
                     help='number of timesteps to linearly anneal over (must be equal to n-frames if constant)')
+# TODO: Do I need this?
 parser.add_argument('--noise-args', default = {}, type=dict, metavar='NOISE_ARGS',
                     help='arguments for the noise layers')
 
@@ -122,6 +122,7 @@ if is_atari:
 else:
     # TODO: Handle Mujoco wrapping as needed
     pass
+args.action_dim = env.action_space.n
 
 # Sanity check
 assert (args.alg == 'dqn' and is_atari) or (args.alg == 'ppo' and issubclass(env.action_space, gym.spaces.Box)), 'Algorithm must match up with environment.'
@@ -155,9 +156,10 @@ def main(env, args):
     # Model & experiences
     print("==> creating model '{}' with '{}' noise".format(args.alg, args.noise))
     if args.alg == 'dqn':
-        args.initial_threshold = - log(1 - args.epsilon_greed + args.epsilon_greed / env.action_space.n)
+        args.epsilon_greed_init = args.epsilon_greed
+        args.initial_threshold = - math.log(1 - args.epsilon_greed + args.epsilon_greed / args.action_dim)
         model = DQN(action_space = env.action_space, noise = args.noise, initial_threshold = args.initial_threshold)
-        target_model = DQN(action_space = env.action_space, noise = args.noise)
+        target_model = DQN(action_space = env.action_space, noise = args.noise, initial_threshold = args.initial_threshold)
         target_model.load_state_dict(model.state_dict())
         args.memory = ReplayBuffer(args.replay_memory, args.use_cuda)
     else:
@@ -215,7 +217,7 @@ def main(env, args):
         print("==> filling replay buffer with {} transition(s)".format(true_warmup))
         state = env.reset()
         for i in range(true_warmup):
-            action = random.randrange(env.action_space.n)
+            action = random.randrange(args.action_dim)
             successor, reward, done, _ = env.step(action)
             args.memory.add(state, action, reward, successor, done)
             state = successor if not done else env.reset()

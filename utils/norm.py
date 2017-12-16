@@ -1,9 +1,10 @@
 import torch
 from torch.nn import Module
+from torch.nn.parameter import Parameter
 
 
 def layer_norm(input, weight=None, bias=None, eps=1e-5):
-    """ 
+    """
     taken from https://github.com/pytorch/pytorch/pull/2019/files#diff-792bf0736d92f4c00031da98098d40ad
     """
     if input is not None and input.dim() != 2:
@@ -29,7 +30,7 @@ def layer_norm(input, weight=None, bias=None, eps=1e-5):
 
 
 class LayerNorm(Module):
-    """ 
+    """
     taken from https://github.com/pytorch/pytorch/pull/2019/files#diff-792bf0736d92f4c00031da98098d40ad
     """
     def __init__(self, num_features=None, eps=1e-5):

@@ -142,7 +142,6 @@ class AdaptNoisyLinear(Module):
             self.register_buffer('bias_epsilon', torch.Tensor(out_features))
         else:
             self.register_parameter('bias', None)
-        self.reset_parameters()
         self.resample()
 
     def update_threshold(self, new_threshold):

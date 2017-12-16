@@ -35,58 +35,26 @@ def trainDQN(env, model, target_model, optimizer, value_criterion, args):
             target_model.denoise()
 
         # Compute terms for network update
-        if args.noise == 'learned':
-            # Need to resample parameters for each transition in the batch
-            # I wonder if this is really necessary
-            # Seems inefficient at best but I don't make the rules
-            # for i in range(len(states.split(1))):
-            #     model.resample()
-            #     target_model.resample()
-            #     this_one = Variable(states[i].data.unsqueeze(0))
-            #     Q = model(this_one).max(1)[0]
-            #     this_one.volatile = True
-            #     target_Q = target_model(this_one).max(1)[0] if not final_mask[i] else 0
-            #     target_Q.volatile = False
-            #     expected_Q = args.discount_factor * target_Q + rewards[i]
-            #
-            #     # Compute loss, backpropagate and apply clipped gradient update
-            #     one_step_loss = value_criterion(Q, expected_Q)
-            #     optimizer.zero_grad()
-            #     one_step_loss.backward()
-            #     for param in model.parameters():
-            #         param.grad.data.clamp(-1,1)
-            #     optimizer.step()
-            #     loss += one_step_loss
+        # In regards to commit 74c2315:
+        # Reached out to the folks at DeepMind, they
+        # said sampling noise for each batch is sufficient
+        # Q_head is used for adaptive
+        Q_head = model(states)
+        Q = Q_head.max(1)[0]
+        states.volatile = True
+        Q_head = Q_head.detach()
+        target_Q = target_model(states).max(1)[0]
+        target_Q[final_mask] = 0
+        target_Q.volatile = False
+        expected_Q = args.discount_factor * target_Q + rewards
 
-            Q = model(states).max(1)[0]
-            states.volatile = True
-            target_Q = target_model(states).max(1)[0]
-            target_Q[final_mask] = 0
-            target_Q.volatile = False
-            expected_Q = args.discount_factor * target_Q + rewards
-
-            # Compute loss, backpropagate and apply clipped gradient update
-            loss = value_criterion(Q, expected_Q)
-            optimizer.zero_grad()
-            loss.backward()
-            for param in model.parameters():
-                param.grad.data.clamp_(-1, 1)
-            optimizer.step()
-        else:
-            Q = model(states).max(1)[0]
-            states.volatile = True
-            target_Q = target_model(states).max(1)[0]
-            target_Q[final_mask] = 0
-            target_Q.volatile = False
-            expected_Q = args.discount_factor * target_Q + rewards
-
-            # Compute loss, backpropagate and apply clipped gradient update
-            loss = value_criterion(Q, expected_Q)
-            optimizer.zero_grad()
-            loss.backward()
-            for param in model.parameters():
-                param.grad.data.clamp_(-1, 1)
-            optimizer.step()
+        # Compute loss, backpropagate and apply clipped gradient update
+        loss = value_criterion(Q, expected_Q)
+        optimizer.zero_grad()
+        loss.backward()
+        for param in model.parameters():
+            param.grad.data.clamp_(-1, 1)
+        optimizer.step()
 
         # Sync target network if needed
         if args.current_frame % args.sync_every == args.sync_every - 1:
@@ -94,8 +62,9 @@ def trainDQN(env, model, target_model, optimizer, value_criterion, args):
 
         # Adapt if needed
         if args.noise == 'adaptive':
-            pass
-            distance = None
+            model.renoise()
+            perturbed_output = model(states)
+            distance = model.adaptive_metric(Q_head, perturbed_output)
             model.adapt(distance)
 
         # Update frame-level meters

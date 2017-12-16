@@ -1,6 +1,7 @@
 import os
 import random
 import shutil
+import math
 
 import torch
 from torch.autograd import Variable
@@ -15,8 +16,13 @@ def select_action(state, model, args):
         if args.noise == 'learned':
             return model(Variable(encoded_state.unsqueeze(0), volatile=True).type(args.FloatTensor)).data.max(1)[1].view(1, 1)[0, 0]
         else:
-            # TODO: Make it epsilon-greedy
             sample = random.random()
+            if args.epsilon_greed_end:
+                args.epsilon_greed = args.epsilon_greed + (args.epsilon_greed_init - args.epsilon_greed_end) * math.exp(-1. * args.current_frame / args.epsilon_greed_steps)
+            if sample > args.epsilon_greed:
+                return model(Variable(encoded_state.unsqueeze(0), volatile=True).type(args.FloatTensor)).data.max(1)[1].view(1, 1)[0, 0]
+            else:
+                return random.randrange(args.action_dim)
     else:
         # PPO
         pass
