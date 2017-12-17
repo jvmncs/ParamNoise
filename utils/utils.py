@@ -6,7 +6,7 @@ import math
 import torch
 from torch.autograd import Variable
 
-#import matplotlib.pyplt as plt
+import matplotlib.pyplt as plt
 import numpy as np
 
 

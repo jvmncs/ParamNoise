@@ -207,9 +207,12 @@ def main(env, args):
         args.episode_lengths = checkpoint['episode_lengths']
         optimizer.load_state_dict(checkpoint['optimizer'])
         args.logger = Logger(os.path.join(args.checkpoint, '{}-log.txt'.format(title)), title=title, resume=True)
+        args.test_logger = Logger(os.path.join(args.checkpoint, 'eval-{}-log.txt'.format(title)), title=title, resume=True)
     else:
         args.logger = Logger(os.path.join(args.checkpoint, '{}-log.txt'.format(title)), title=title)
         args.logger.set_names(['Episode', 'Frame', 'EpLen', 'AvgLoss', 'Return'])
+        args.test_logger = Logger(os.path.join(args.checkpoint, 'eval-{}-log.txt'.format(title)), title=title)
+        args.test_logger.set_names(['Frame', 'EpLen', 'Return'])
 
     # We need at least one experience in the replay buffer for DQN
     if args.alg == 'dqn':
@@ -269,8 +272,6 @@ def main(env, args):
             args.test_returns = AverageMeter()
             args.test_episode_lengths = AverageMeter()
 
-            args.test_logger = Logger(os.path.join(args.checkpoint, 'test{}-{}-log.txt'.format(args.test_num, title)), title=title)
-            args.test_logger.set_names(['Frame', 'EpLen', 'Return'])
 
             # Main testing loop
             while args.testing_frame - args.eval_start < args.eval_period:
@@ -302,6 +303,8 @@ def main(env, args):
         #print('episode: {}'.format(episode))
     # TODO: Handle cleanup
     args.bar.finish()
+    args.logger.close()
+    args.test_logger.close()
     env.close()
 
 if __name__ == '__main__':

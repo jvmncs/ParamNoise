@@ -36,11 +36,11 @@ def testDQN(env, model, args):
 
     # Update episode-level meters
     args.test_returns.update(args.test_rewards.sum)
-    args.test_episode_lengths.update(args.testing_frame)
+    args.test_episode_lengths.update(args.testing_frame - initial_frame)
 
     args.test_bar.suffix += ' | Return {return_} | Episode Length {length}\n'.format(
                 return_=args.test_returns.val,
-                length=args.test_episode_lengths.val - initial_frame)
+                length=args.test_episode_lengths.val)
     args.test_bar.next()
 
     return env, args
