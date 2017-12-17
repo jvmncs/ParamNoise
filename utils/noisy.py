@@ -148,7 +148,7 @@ class AdaptNoisyLinear(Module):
         self.threshold = new_threshold
 
     def adapt(self, distance):
-        if distance > self.threshold:
+        if (distance > self.threshold).all():
             self.sigma /= self.adaptation_coefficient
             self.placeholder_sigma /= self.adaptation_coefficient
         else:

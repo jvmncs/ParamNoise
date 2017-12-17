@@ -46,7 +46,7 @@ class DQN(nn.Module):
 
     # Probably need to change these arguments to softmax(net_output) and softmax(perturbed_output)
     def adaptive_metric(self, net, perturbed):
-        return nn.functional.kl_div(nn.functional.softmax(net), nn.functional.softmax(perturbed))
+        return nn.functional.kl_div(nn.functional.softmax(net, dim=1), nn.functional.softmax(perturbed, dim=1))
 
     def resample(self):
         if self.noise:
