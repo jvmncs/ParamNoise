@@ -1,4 +1,5 @@
 from torch.autograd import Variable
+import torch.nn  as nn
 from utils.utils import select_action
 
 # Only one episode (Remember, end of life = end of episode for DQN)
@@ -14,6 +15,7 @@ def trainDQN(env, model, target_model, optimizer, value_criterion, args):
         if args.noise == 'learned':
             model.resample()
         elif args.noise == 'adaptive':
+            model.eval()
             model.renoise()
             model.resample()
 
@@ -33,6 +35,7 @@ def trainDQN(env, model, target_model, optimizer, value_criterion, args):
         if args.noise == 'adaptive':
             model.denoise()
             target_model.denoise()
+            model.train()
 
         # Compute terms for network update
         # In regards to commit 74c2315:
@@ -42,7 +45,6 @@ def trainDQN(env, model, target_model, optimizer, value_criterion, args):
         Q_head = model(states)
         Q = Q_head.max(1)[0]
         states.volatile = True
-        Q_head = Q_head.detach()
         target_Q = target_model(states).max(1)[0]
         target_Q[final_mask] = 0
         target_Q.volatile = False
@@ -52,8 +54,7 @@ def trainDQN(env, model, target_model, optimizer, value_criterion, args):
         loss = value_criterion(Q, expected_Q)
         optimizer.zero_grad()
         loss.backward()
-        for param in model.parameters():
-            param.grad.data.clamp_(-1, 1)
+        nn.utils.clip_grad_norm(model.parameters(), 10.)
         optimizer.step()
 
         # Sync target network if needed
@@ -61,9 +62,10 @@ def trainDQN(env, model, target_model, optimizer, value_criterion, args):
             target_model.load_state_dict(model.state_dict())
 
         # Adapt if needed
-        if args.noise == 'adaptive':
+        if args.noise == 'adaptive' and args.current_frame % args.adapt_every == args.adapt_every - 1:
             model.renoise()
             perturbed_output = model(states)
+            Q_head = Q_head.detach()
             distance = model.adaptive_metric(Q_head, perturbed_output)
             model.adapt(distance)
 

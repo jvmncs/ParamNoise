@@ -42,6 +42,8 @@ parser.add_argument('--epsilon-greed-end', default = .1, type=float, metavar='FL
                     help='end of epsilon schedule (meaningless if constant epsilon-greed)')
 parser.add_argument('--epsilon-greed-steps', default = 1000000, type=int, metavar='N',
                     help='number of timesteps to linearly anneal over (must be equal to n-frames if constant)')
+parser.add_argument('--adapt-every', default = 50, type=int, metavar='N',
+                    help='how often to adapt scale of variance')
 # TODO: Do I need this?
 parser.add_argument('--noise-args', default = {}, type=dict, metavar='NOISE_ARGS',
                     help='arguments for the noise layers')
@@ -105,8 +107,8 @@ if args.manual_seed is None:
     args.manual_seed = random.randint(1, 10000)
 random.seed(args.manual_seed)
 torch.manual_seed(args.manual_seed)
-if args.use_cuda:
-    torch.cuda.manual_seed_all(args.manual_seed)
+torch.cuda.manual_seed_all(args.manual_seed)
+torch.backends.cudnn.enabled = False
 
 
 # Build env
@@ -137,9 +139,6 @@ def main(env, args):
     args.test_num = 0
     args.test_time = False
     args.best_avg_return = -1
-
-    args.bar = Bar('Training', max = args.n_frames)
-    args.test_bar = Bar('Testing', max = args.eval_period)
 
     # Make checkpoint path if there is none
     if not os.path.isdir(args.checkpoint):
@@ -227,6 +226,9 @@ def main(env, args):
         # Need next reset to be a true reset (due to EpisodicLifeEnv)
         env.was_real_done = True
 
+    # Initialize bars
+    args.bar = Bar('Training', max = args.n_frames)
+
     print("==> beginning training for {} frames".format(args.n_frames))
     for episode in itertools.count(start_episode):
         # Train model
@@ -267,6 +269,7 @@ def main(env, args):
 
             args.eval_start = args.current_frame
             args.testing_frame = args.current_frame
+            args.test_bar = Bar('Testing', max = args.eval_period)
 
             args.test_rewards  = AverageMeter()
             args.test_returns = AverageMeter()
@@ -305,6 +308,7 @@ def main(env, args):
     args.bar.finish()
     args.logger.close()
     args.test_logger.close()
+    args.logger.plot()
     env.close()
 
 if __name__ == '__main__':

@@ -18,16 +18,11 @@ Noisy Networks For Exploration : https://openreview.net/forum?id=rywHCPkAW&noteI
 
 
 ### TODOs
-- Develop AdaptNoisyLinear layer
 - Implement PPO and MuJoCo env handling
-- Implement plotting (matplotlib is in Logger object, maybe try out visdom?)
-- Test combinations of arguments (mostly envs with different )
-- Determine if (and which) sparse rllab envs should be tested
-- Experiments
-  - DQN baseline
-  - Noisy-DQN
-  - Adapt-DQN
-- Run baseline PPO, Noisy-PPO, and Adapt-PPO
+- Revisit logging; make sure everything is there to reproduce results in papers
+- Implement plotting (matplotlib is in Logger object; maybe try out visdom)
+- More tests (figure out different combinations of arguments to ensure everything's interacting well)
+- Begin experiments (start with Mujoco; it's cheaper)
 
 
 ### Atari Games to Test
@@ -42,3 +37,4 @@ Noisy Networks For Exploration : https://openreview.net/forum?id=rywHCPkAW&noteI
 - Hopper
 - Walker2d
 - HalfCheetah
+- Sparse versions of these? (from rllab)
