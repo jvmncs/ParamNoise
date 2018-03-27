@@ -42,6 +42,8 @@ parser.add_argument('--epsilon-greed-end', default = .1, type=float, metavar='FL
                     help='end of epsilon schedule (meaningless if constant epsilon-greed)')
 parser.add_argument('--epsilon-greed-steps', default = 1000000, type=int, metavar='N',
                     help='number of timesteps to linearly anneal over (must be equal to n-frames if constant)')
+parser.add_argument('--adapt-every', default = 50, type=int, metavar='N',
+                    help='how often to adapt scale of variance')
 # TODO: Do I need this?
 parser.add_argument('--noise-args', default = {}, type=dict, metavar='NOISE_ARGS',
                     help='arguments for the noise layers')
@@ -105,8 +107,8 @@ if args.manual_seed is None:
     args.manual_seed = random.randint(1, 10000)
 random.seed(args.manual_seed)
 torch.manual_seed(args.manual_seed)
-if args.use_cuda:
-    torch.cuda.manual_seed_all(args.manual_seed)
+torch.cuda.manual_seed_all(args.manual_seed)
+torch.backends.cudnn.enabled = False
 
 
 # Build env
@@ -137,9 +139,6 @@ def main(env, args):
     args.test_num = 0
     args.test_time = False
     args.best_avg_return = -1
-
-    args.bar = Bar('Training', max = args.n_frames)
-    args.test_bar = Bar('Testing', max = args.eval_period)
 
     # Make checkpoint path if there is none
     if not os.path.isdir(args.checkpoint):
@@ -207,9 +206,12 @@ def main(env, args):
         args.episode_lengths = checkpoint['episode_lengths']
         optimizer.load_state_dict(checkpoint['optimizer'])
         args.logger = Logger(os.path.join(args.checkpoint, '{}-log.txt'.format(title)), title=title, resume=True)
+        args.test_logger = Logger(os.path.join(args.checkpoint, 'eval-{}-log.txt'.format(title)), title=title, resume=True)
     else:
         args.logger = Logger(os.path.join(args.checkpoint, '{}-log.txt'.format(title)), title=title)
         args.logger.set_names(['Episode', 'Frame', 'EpLen', 'AvgLoss', 'Return'])
+        args.test_logger = Logger(os.path.join(args.checkpoint, 'eval-{}-log.txt'.format(title)), title=title)
+        args.test_logger.set_names(['Frame', 'EpLen', 'Return'])
 
     # We need at least one experience in the replay buffer for DQN
     if args.alg == 'dqn':
@@ -223,6 +225,9 @@ def main(env, args):
             state = successor if not done else env.reset()
         # Need next reset to be a true reset (due to EpisodicLifeEnv)
         env.was_real_done = True
+
+    # Initialize bars
+    args.bar = Bar('Training', max = args.n_frames)
 
     print("==> beginning training for {} frames".format(args.n_frames))
     for episode in itertools.count(start_episode):
@@ -264,13 +269,12 @@ def main(env, args):
 
             args.eval_start = args.current_frame
             args.testing_frame = args.current_frame
+            args.test_bar = Bar('Testing', max = args.eval_period)
 
             args.test_rewards  = AverageMeter()
             args.test_returns = AverageMeter()
             args.test_episode_lengths = AverageMeter()
 
-            args.test_logger = Logger(os.path.join(args.checkpoint, 'test{}-{}-log.txt'.format(args.test_num, title)), title=title)
-            args.test_logger.set_names(['Frame', 'EpLen', 'Return'])
 
             # Main testing loop
             while args.testing_frame - args.eval_start < args.eval_period:
@@ -302,6 +306,9 @@ def main(env, args):
         #print('episode: {}'.format(episode))
     # TODO: Handle cleanup
     args.bar.finish()
+    args.logger.close()
+    args.test_logger.close()
+    args.logger.plot()
     env.close()
 
 if __name__ == '__main__':

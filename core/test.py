@@ -22,7 +22,7 @@ def testDQN(env, model, args):
 
         # Update testing progress bar
         args.test_bar.suffix = '({frame}/{size}) | Total: {total:} | ETA: {eta:} | AvgReward: {rewards: .4f}'.format(
-                    frame=args.testing_frame,
+                    frame=args.testing_frame - args.eval_start,
                     size=args.eval_period,
                     #data=data_time.avg,
                     #bt=batch_time.avg,
@@ -36,11 +36,11 @@ def testDQN(env, model, args):
 
     # Update episode-level meters
     args.test_returns.update(args.test_rewards.sum)
-    args.test_episode_lengths.update(args.testing_frame)
+    args.test_episode_lengths.update(args.testing_frame - initial_frame)
 
     args.test_bar.suffix += ' | Return {return_} | Episode Length {length}\n'.format(
                 return_=args.test_returns.val,
-                length=args.test_episode_lengths.val - initial_frame)
+                length=args.test_episode_lengths.val)
     args.test_bar.next()
 
     return env, args

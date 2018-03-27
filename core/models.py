@@ -22,9 +22,9 @@ class DQN(nn.Module):
             self.fc = nn.Linear(self.flattened_dim, 512)
             self.out = nn.Linear(512, self.action_dim)
         elif self.noise == 'adaptive':
-            self.ln = LayerNorm(self.flattened_dim)
+            self.norm = nn.BatchNorm1d(self.flattened_dim)
             self.fc = AdaptNoisyLinear(self.flattened_dim, 512, initial_threshold)
-            self.ln_out = LayerNorm(512)
+            self.norm_out = nn.BatchNorm1d(512)
             self.out = AdaptNoisyLinear(512, self.action_dim, initial_threshold)
         else:
             self.fc = NoisyLinear(self.flattened_dim, 512)
@@ -35,18 +35,18 @@ class DQN(nn.Module):
         x = nn.functional.relu(self.conv2(x))
         x = nn.functional.relu(self.conv3(x))
         if self.noise == 'adaptive':
-            x = self.ln(x.view(x.size(0),-1))
+            x = self.norm(x.view(x.size(0),-1))
             x = self.fc(x)
+            #x = self.fc(x.view(x.size(0),-1))
         else:
             x = self.fc(x.view(x.size(0),-1))
         x = nn.functional.relu(x)
         if self.noise == 'adaptive':
-            x = self.ln_out(x)
+            x = self.norm_out(x)
         return self.out(x)
 
-    # Probably need to change these arguments to softmax(net_output) and softmax(perturbed_output)
     def adaptive_metric(self, net, perturbed):
-        return nn.functional.kl_div(nn.functional.softmax(net), nn.functional.softmax(perturbed))
+        return nn.functional.kl_div(nn.functional.log_softmax(net, dim=1), nn.functional.softmax(perturbed, dim=1))
 
     def resample(self):
         if self.noise:

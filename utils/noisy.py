@@ -100,9 +100,9 @@ class NoisyLinear(Module):
             if self.include_bias:
                 self.bias_epsilon.copy_(self._scale_noise(self.out_features))
         else:
-            self.weight_epsilon.copy_(torch.randn((self.out_features, self.in_features)))
+            self.weight_epsilon.normal_()
             if self.include_bias:
-                self.bias_epsilon.copy_(torch.randn(self.out_features))
+                self.bias_epsilon.normal_()
 
     def forward(self, input):
         if self.training:
@@ -126,7 +126,7 @@ class NoisyLinear(Module):
 # Will have to ask how robust this is
 # Will also have to ask how they set this for TRPO and how they might set it for PPO
 class AdaptNoisyLinear(Module):
-    def __init__(self, in_features, out_features, threshold, bias = True, std_init = .01, adaptation_coefficient = 1.01):
+    def __init__(self, in_features, out_features, threshold, bias = True, std_init = .1, adaptation_coefficient = 1.01):
         super(AdaptNoisyLinear, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
@@ -142,13 +142,14 @@ class AdaptNoisyLinear(Module):
             self.register_buffer('bias_epsilon', torch.Tensor(out_features))
         else:
             self.register_parameter('bias', None)
+        self.noisy = True
         self.resample()
 
     def update_threshold(self, new_threshold):
         self.threshold = new_threshold
 
     def adapt(self, distance):
-        if distance > self.threshold:
+        if (distance > self.threshold).all():
             self.sigma /= self.adaptation_coefficient
             self.placeholder_sigma /= self.adaptation_coefficient
         else:
@@ -156,21 +157,23 @@ class AdaptNoisyLinear(Module):
             self.placeholder_sigma *= self.adaptation_coefficient
 
     def denoise(self):
-        self.placeholder_sigma = self.sigma
-        self.sigma = 0
+        self.noisy = False
 
     def renoise(self):
-        self.sigma = self.placeholder_sigma
+        self.noisy = True
 
     def resample(self):
-        self.weight_epsilon.copy_(torch.randn((self.out_features, self.in_features)))
+        self.weight_epsilon.normal_()
         if self.include_bias:
-            self.bias_epsilon.copy_(torch.randn(self.out_features))
+            self.bias_epsilon.normal_()
 
     def forward(self, input):
-        return F.linear(input,
-                        self.weight_mu + Variable(self.sigma**2 * self.weight_epsilon),
-                        self.bias_mu + Variable(self.sigma**2 * self.bias_epsilon))
+        if self.noisy:
+            return F.linear(input,
+                self.weight_mu + Variable(self.sigma * self.weight_epsilon),
+                self.bias_mu + Variable(self.sigma * self.bias_epsilon))
+        else:
+            return F.linear(input, self.weight_mu, self.bias_mu)
 
     def __repr__(self):
         return self.__class__.__name__ + ' (' \

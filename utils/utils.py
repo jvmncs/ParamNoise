@@ -6,7 +6,7 @@ import math
 import torch
 from torch.autograd import Variable
 
-#import matplotlib.pyplt as plt
+import matplotlib.pyplot as plt
 import numpy as np
 
 
@@ -17,8 +17,9 @@ def select_action(state, model, args):
             return model(Variable(encoded_state.unsqueeze(0), volatile=True).type(args.FloatTensor)).data.max(1)[1].view(1, 1)[0, 0]
         else:
             sample = random.random()
-            if args.epsilon_greed_end:
-                args.epsilon_greed = args.epsilon_greed + (args.epsilon_greed_init - args.epsilon_greed_end) * math.exp(-1. * args.current_frame / args.epsilon_greed_steps)
+            if args.epsilon_greed_end is not None and args.epsilon_greed > args.epsilon_greed_end:
+                args.epsilon_greed -= (args.epsilon_greed_init - args.epsilon_greed_end) / args.epsilon_greed_steps
+                model.update_threshold(- math.log(1 - args.epsilon_greed + args.epsilon_greed / args.action_dim))
             if sample > args.epsilon_greed:
                 return model(Variable(encoded_state.unsqueeze(0), volatile=True).type(args.FloatTensor)).data.max(1)[1].view(1, 1)[0, 0]
             else:
