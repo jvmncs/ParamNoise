@@ -5,3 +5,4 @@ DQN learned
 --env-id "AlienNoFrameskip-v0" --noise learned --epsilon-greed-steps 1000 --n-frames 10000 --replay-memory 1000 --sync-every 100 --memory-warmup 1000 --max-episode-length 490 --eval-every 500 --eval-period 1000 --manual-seed 42
 
 DQN adaptive
+--env-id "AlienNoFrameskip-v0" --noise adaptive --epsilon-greed-steps 1000 --n-frames 10000 --replay-memory 1000 --sync-every 100 --memory-warmup 1000 --max-episode-length 490 --eval-every 500 --eval-period 1000 --manual-seed 42
