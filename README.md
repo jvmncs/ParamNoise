@@ -1,6 +1,8 @@
 # ParamNoise
 A comparison of parameter space noise methods for exploration in deep reinforcement learning
 
+NOTE: This project has been stalled indefinitely.  WYSIWYG.  Reach out if you'd like to help reboot it.
+
 
 ### Links to papers
 Parameter Space Noise for Exploration : https://openreview.net/forum?id=ByBAl2eAZ&noteId=ByBAl2eAZ
